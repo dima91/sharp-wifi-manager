@@ -74,6 +74,18 @@ internal sealed class DBusClient
         return (NetworkManagerDeviceType)value;
     }
 
+    /* Reads the NetworkManager device state property.
+
+        @param devicePath D-Bus object path of the NetworkManager device
+
+        @returns The device state converted to "NetworkManagerDeviceState"
+    */
+    public async Task<NetworkManagerDeviceState> GetDeviceStateAsync(ObjectPath devicePath)
+    {
+        var value = await GetUInt32PropertyAsync(devicePath, DeviceInterface, "State");
+        return (NetworkManagerDeviceState)value;
+    }
+
     
     /* Calls "org.freedesktop.NetworkManager.Device.Wireless.GetAccessPoints"
 

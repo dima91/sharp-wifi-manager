@@ -112,3 +112,47 @@ public enum AccessPointSecurityFlags : uint
     // WPA3 Enterprise 192-bit suite is supported
     KeyMgmtEapSuiteB192 = 0x2000
 }
+
+
+// Represents the current operating state of a network device managed by NetworkManager.
+public enum NetworkManagerDeviceState : uint
+{
+    // The device state is unknown or cannot be determined.
+    Unknown = 0,
+    
+    // The device is not managed by NetworkManager.
+    Unmanaged = 10,
+    
+    // The device is managed but cannot be used (e.g., missing firmware or cable disconnected).
+    Unavailable = 20,
+    
+    // The device is managed and available, but not connected to any network.
+    Disconnected = 30,
+    
+    // The device is preparing the connection (initial activation stage).
+    Prepare = 40,
+    
+    // Device or link configuration in progress.
+    Config = 50,
+    
+    // The device requires secrets or authentication to proceed.
+    NeedAuth = 60,
+    
+    // The device is acquiring an IP address and related network parameters.
+    IpConfig = 70,
+    
+    // IP connectivity check in progress (e.g., checking the gateway).
+    IpCheck = 80,
+    
+    // Waiting for activation of secondary connections (like a VPN).
+    Secondaries = 90,
+    
+    // The device has a valid network connection and is fully operational.
+    Activated = 100,
+    
+    // The device is disconnecting.
+    Deactivating = 110,
+    
+    // The last activation attempt or existing connection has failed.
+    Failed = 120
+}
