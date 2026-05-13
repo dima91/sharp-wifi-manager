@@ -5,4 +5,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.93.0" />
+  </ItemGroup>
+
 </Project>

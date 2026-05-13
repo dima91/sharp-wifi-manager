@@ -1,0 +1,103 @@
+using System;
+using WifiManager.Interfaces;
+using System.Collections.Generic;
+using System.Linq;
+using Tmds.DBus.Protocol;
+using System.Threading;
+using System.Threading.Tasks;
+
+
+namespace WifiManager;
+
+/* This implementation talks to the "org.freedesktop.NetworkManager" service.
+    It works on Linux systems where NetworkManager is installed, running, and
+    responsible for the Wi-Fi interface. Raspberry Pi OS, Ubuntu, Debian, and many
+    desktop distributions can use this backend when NetworkManager manages
+    "wlan0" or the equivalent wireless interface.
+*/
+
+public sealed class WifiManager : IWifiScanner
+{
+    
+    /* Delay used after "RequestScan" when callers do not provide a custom delay.
+        NetworkManager does not return scan results synchronously from "RequestScan".
+        Two seconds is a pragmatic default for CLI/demo usage: short enough to feel responsive,
+        but long enough for most adapters to refresh their access point cache.
+    */
+    private static readonly TimeSpan DefaultScanDelay = TimeSpan.FromSeconds(2);
+
+
+    public async Task<IReadOnlyList<WifiNetwork>> GetNetworksAsync(
+        bool requestScan = true,
+        TimeSpan? scanDelay = null,
+        CancellationToken cancellationToken = default)
+    {
+        /* Tmds.DBus.Protocol reads the well-known system bus address from the host environment.
+            If this is missing, the process is not running in a normal Linux D-Bus environment or the system bus is unavailable. */
+        if (DBusAddress.System is null)
+            throw new InvalidOperationException("The D-Bus system bus address is not available.");
+
+        var connection = new DBusConnection(DBusAddress.System);
+        await connection.ConnectAsync();
+
+        var networkManager = new DBusClient(connection);
+        var devicePaths = await networkManager.GetDevicesAsync();
+        var networks = new List<WifiNetwork>();
+
+        /* NetworkManager exposes all network devices from the root manager object.
+            We inspect each device and keep only devices whose DeviceType is Wi-Fi. */
+        foreach (var devicePath in devicePaths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var deviceType = await networkManager.GetDeviceTypeAsync(devicePath);
+            if (deviceType != NetworkManagerDeviceType.Wifi)
+            {
+                continue;
+            }
+
+            if (requestScan)
+            {
+                /* RequestScan schedules a scan: it does not block until the scan is complete.
+                    The delay lets NetworkManager update its access point objects before we read them. */
+                await networkManager.RequestScanAsync(devicePath);
+                await Task.Delay(scanDelay ?? DefaultScanDelay, cancellationToken);
+            }
+
+            var interfaceName = await networkManager.GetInterfaceNameAsync(devicePath);
+            var accessPointPaths = await networkManager.GetAccessPointsAsync(devicePath);
+
+            foreach (var accessPointPath in accessPointPaths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                /* Access point properties are exposed as a D-Bus property bag.
+                    Convert the low-level representation into a stable public record. */
+                var accessPoint = await networkManager.GetAccessPointPropertiesAsync(accessPointPath);
+                networks.Add(new WifiNetwork(
+                    InterfaceName: interfaceName,
+                    Ssid: SsidFormatter.Decode(accessPoint.Ssid),
+                    Bssid: accessPoint.HwAddress,
+                    StrengthPercent: accessPoint.Strength,
+                    FrequencyMHz: accessPoint.Frequency,
+                    Channel: WifiChannel.FromFrequency(accessPoint.Frequency),
+                    MaxBitrateKbps: accessPoint.MaxBitrate,
+                    LastSeenSeconds: accessPoint.LastSeen,
+                    Mode: accessPoint.Mode,
+                    Flags: accessPoint.Flags,
+                    WpaFlags: accessPoint.WpaFlags,
+                    RsnFlags: accessPoint.RsnFlags,
+                    Security: SecurityFormatter.Describe(accessPoint.Flags, accessPoint.WpaFlags, accessPoint.RsnFlags),
+                    DevicePath: devicePath.ToString(),
+                    AccessPointPath: accessPointPath.ToString()));
+            }
+        }
+
+        // Stable ordering keeps CLI output predictable and also makes automated comparisons/tests less noisy.
+        return networks
+            .OrderBy(network => network.InterfaceName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(network => network.Ssid, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(network => network.StrengthPercent)
+            .ToArray();
+    }
+}
