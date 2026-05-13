@@ -16,9 +16,8 @@ namespace WifiManager;
     "wlan0" or the equivalent wireless interface.
 */
 
-public sealed class WifiManager : IWifiScanner
+public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager
 {
-    
     /* Delay used after "RequestScan" when callers do not provide a custom delay.
         NetworkManager does not return scan results synchronously from "RequestScan".
         Two seconds is a pragmatic default for CLI/demo usage: short enough to feel responsive,
@@ -99,5 +98,56 @@ public sealed class WifiManager : IWifiScanner
             .ThenBy(network => network.Ssid, StringComparer.OrdinalIgnoreCase)
             .ThenByDescending(network => network.StrengthPercent)
             .ToArray();
+    }
+
+
+    public async Task<INetworkInterfacesManager.InterfaceState?> GetInterfaceStateAsync(string interfaceName)
+    {
+        if (DBusAddress.System is null)
+            throw new InvalidOperationException("The D-Bus system bus address is not available.");
+
+        var connection = new DBusConnection(DBusAddress.System);
+        await connection.ConnectAsync();
+
+        var networkManager = new DBusClient(connection);
+        var devicePaths = await networkManager.GetDevicesAsync();
+
+        foreach (var devicePath in devicePaths)
+        {
+            var iface = await networkManager.GetInterfaceNameAsync(devicePath);
+            if (string.Equals(iface, interfaceName, StringComparison.OrdinalIgnoreCase))
+            {
+                var state = await networkManager.GetDeviceStateAsync(devicePath);
+                return new INetworkInterfacesManager.InterfaceState(iface, state, devicePath.ToString());
+            }
+        }
+
+        return null;
+    }
+
+    public async Task<IReadOnlyList<INetworkInterfacesManager.InterfaceState>> ListInterfaceStatesAsync()
+    {
+        if (DBusAddress.System is null)
+            throw new InvalidOperationException("The D-Bus system bus address is not available.");
+
+        var connection = new DBusConnection(DBusAddress.System);
+        await connection.ConnectAsync();
+
+        var networkManager = new DBusClient(connection);
+        var devicePaths = await networkManager.GetDevicesAsync();
+        var list = new List<INetworkInterfacesManager.InterfaceState>();
+
+        foreach (var devicePath in devicePaths)
+        {
+            var deviceType = await networkManager.GetDeviceTypeAsync(devicePath);
+            if (deviceType != NetworkManagerDeviceType.Wifi)
+                continue;
+
+            var iface = await networkManager.GetInterfaceNameAsync(devicePath);
+            var state = await networkManager.GetDeviceStateAsync(devicePath);
+            list.Add(new INetworkInterfacesManager.InterfaceState(iface, state, devicePath.ToString()));
+        }
+
+        return list.OrderBy(s => s.InterfaceName, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 }
