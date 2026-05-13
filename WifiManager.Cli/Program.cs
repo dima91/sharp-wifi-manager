@@ -16,13 +16,55 @@ if (options.ShowHelp)
 
 try
 {
-    // Using the concrete implementation defined in the WifiManager project
-    IWifiScanner scanner = new WifiManager.WifiManager();
+    WifiManager.WifiManager manager = new WifiManager.WifiManager();
+
+
+    if (!string.IsNullOrEmpty(options.IfaceStatus))
+    {
+        var state = await manager.GetInterfaceStateAsync(options.IfaceStatus);
+        if (state is null)
+        {
+            Console.Error.WriteLine($"Inteface '{options.IfaceStatus}' not found.");
+            return 2;
+        }
+
+        Console.WriteLine($"Interface: {state.InterfaceName}");
+        Console.WriteLine($"  Device path: {state.DevicePath}");
+        Console.WriteLine($"  State: {state.State} ({(uint)state.State})");
+        return 0;
+    }
+
+    if (options.ListIfaces)
+    {
+        var ifaces = await manager.ListInterfaceStatesAsync();
+
+        if (options.AsJson)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(ifaces, new JsonSerializerOptions { WriteIndented = true }));
+            return 0;
+        }
+
+        if (ifaces.Count == 0)
+        {
+            Console.WriteLine("No Wi‑Fi interface found.");
+            return 0;
+        }
+
+        var rows = ifaces.Select(i => new[] { i.InterfaceName, i.State.ToString(), i.DevicePath }).ToArray();
+        var headers = new[] { "IFACE", "STATE", "DEVICE" };
+        var widths = headers.Select((header, index) => Math.Max(header.Length, rows.Max(r => r[index].Length))).ToArray();
+
+        PrintRow(headers, widths);
+        Console.WriteLine(string.Join("  ", widths.Select(w => new string('-', w))));
+        foreach (var row in rows)
+            PrintRow(row, widths);
+
+        return 0;
+    }
 
     // By default, we request a fresh scan. --no-scan is useful for scripts
     // that prefer immediate cached output over waiting for a scan.
-    var networks = await scanner.GetNetworksAsync(requestScan: !options.NoScan);
-    Console.WriteLine("Lol");
+    var networks = await manager.GetNetworksAsync(requestScan: !options.NoScan);
 
     if (options.AsJson)
     {
@@ -57,6 +99,8 @@ static void PrintHelp()
 
     Options:
       --no-scan   Use NetworkManager cache without requesting a fresh scan.
+      --iface-status=<iface>  Show the current status of the specified interface (e.g. wlan0).
+      --list-ifaces            List the Wi‑Fi interfaces known by NetworkManager.
       --json      Print all information in JSON format.
       --verbose   Print all information in a readable and detailed format.
       --help      Show this help.
@@ -130,11 +174,14 @@ static void PrintVerbose(IReadOnlyList<WifiNetwork> networks)
     }
 }
 
-internal sealed record CliOptions(bool NoScan, bool AsJson, bool Verbose, bool ShowHelp)
+internal sealed record CliOptions(bool NoScan, bool AsJson, bool Verbose, bool ShowHelp, string? IfaceStatus, bool ListIfaces) // Added IfaceStatus and ListIfaces
 {
     public static CliOptions Parse(string[] args) => new(
         NoScan: args.Contains("--no-scan", StringComparer.OrdinalIgnoreCase),
         AsJson: args.Contains("--json", StringComparer.OrdinalIgnoreCase),
         Verbose: args.Contains("--verbose", StringComparer.OrdinalIgnoreCase),
-        ShowHelp: args.Contains("--help", StringComparer.OrdinalIgnoreCase) || args.Contains("-h", StringComparer.OrdinalIgnoreCase));
+        ShowHelp: args.Contains("--help", StringComparer.OrdinalIgnoreCase) || args.Contains("-h", StringComparer.OrdinalIgnoreCase),
+        IfaceStatus: args.FirstOrDefault(arg => arg.StartsWith("--iface-status=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).LastOrDefault(),
+        ListIfaces: args.Contains("--list-ifaces", StringComparer.OrdinalIgnoreCase)
+    );
 }
