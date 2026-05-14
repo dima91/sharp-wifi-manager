@@ -257,4 +257,40 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
             return (false, ex.Message);
         }
     }
+
+
+    public async Task<(bool Success, string Message)> DisconnectInterfaceAsync(string interfaceName)
+    {
+        var args = new List<string> { "device", "disconnect", interfaceName };
+
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("nmcli")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                ArgumentList = { }
+            };
+
+            foreach (var a in args)
+                psi.ArgumentList.Add(a);
+
+            using var proc = System.Diagnostics.Process.Start(psi) ?? throw new InvalidOperationException("Failed to start nmcli");
+            var sout = await proc.StandardOutput.ReadToEndAsync();
+            var serr = await proc.StandardError.ReadToEndAsync();
+            await proc.WaitForExitAsync();
+
+            if (proc.ExitCode == 0)
+                return (true, sout.Trim());
+
+            var combined = (sout + "\n" + serr).Trim();
+            return (false, string.IsNullOrWhiteSpace(combined) ? $"nmcli exit {proc.ExitCode}" : combined);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
 }

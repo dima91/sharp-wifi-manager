@@ -12,4 +12,6 @@ public interface INetworkProfilesManager
     public Task<(bool Connected, string? Message)> ConnectUsingSavedProfileAsync(string interfaceName, string ssid);
 
     public Task<(bool Success, string Message)> CreateAndActivateUsingNmcliAsync(string interfaceName, string ssid, string? psk);
+
+    public Task<(bool Success, string Message)> DisconnectInterfaceAsync(string interfaceName);
 }

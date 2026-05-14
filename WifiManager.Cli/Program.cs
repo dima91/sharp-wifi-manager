@@ -124,6 +124,27 @@ try
         }
     }
 
+    if (!string.IsNullOrEmpty(options.DisconnectIface))
+    {
+        var (success, msg) = await manager.DisconnectInterfaceAsync(options.DisconnectIface);
+        if (options.AsJson)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(new { success, message = msg }, new JsonSerializerOptions { WriteIndented = true }));
+            return success ? 0 : 3;
+        }
+
+        if (success)
+        {
+            Console.WriteLine("Disconnessione riuscita: " + msg);
+            return 0;
+        }
+        else
+        {
+            Console.Error.WriteLine("Disconnessione fallita: " + msg);
+            return 3;
+        }
+    }
+
     // By default, we request a fresh scan. --no-scan is useful for scripts
     // that prefer immediate cached output over waiting for a scan.
     var networks = await manager.GetNetworksAsync(requestScan: !options.NoScan);
@@ -166,6 +187,7 @@ static void PrintHelp()
       --list-profiles             List saved network connection profiles.
       --connect <iface> <ssid>    Prova a connettere usando profili salvati, altrimenti crea con `nmcli`.
       --psk <password>            Password per la connessione (usata se non esiste profilo salvato).
+      --disconnect <iface>        Disconnetti l'interfaccia specificata.
       --json                      Print all information in JSON format.
       --verbose                   Print all information in a readable and detailed format.
       --help                      Show this help.
@@ -239,12 +261,13 @@ static void PrintVerbose(IReadOnlyList<WifiNetwork> networks)
     }
 }
 
-internal sealed record CliOptions(bool NoScan, bool AsJson, bool Verbose, bool ShowHelp, string? IfaceStatus, bool ListIfaces, bool ListProfiles, string? ConnectIface, string? ConnectSsid, string? ConnectPsk)
+internal sealed record CliOptions(bool NoScan, bool AsJson, bool Verbose, bool ShowHelp, string? IfaceStatus, bool ListIfaces, bool ListProfiles, string? ConnectIface, string? ConnectSsid, string? ConnectPsk, string? DisconnectIface)
 {
     public static CliOptions Parse(string[] args)
     {
         var connectIdx = Array.FindIndex(args, arg => arg.Equals("--connect", StringComparison.OrdinalIgnoreCase));
         var pskIdx = Array.FindIndex(args, arg => arg.Equals("--psk", StringComparison.OrdinalIgnoreCase));
+        var disconnectIdx = Array.FindIndex(args, arg => arg.Equals("--disconnect", StringComparison.OrdinalIgnoreCase));
 
         return new(
             NoScan: args.Contains("--no-scan", StringComparer.OrdinalIgnoreCase),
@@ -256,7 +279,8 @@ internal sealed record CliOptions(bool NoScan, bool AsJson, bool Verbose, bool S
             ListProfiles: args.Contains("--list-profiles", StringComparer.OrdinalIgnoreCase),
             ConnectIface: connectIdx >= 0 && args.Length > connectIdx + 1 ? args[connectIdx + 1] : null,
             ConnectSsid: connectIdx >= 0 && args.Length > connectIdx + 2 ? args[connectIdx + 2] : null,
-            ConnectPsk: pskIdx >= 0 && args.Length > pskIdx + 1 ? args[pskIdx + 1] : null
+            ConnectPsk: pskIdx >= 0 && args.Length > pskIdx + 1 ? args[pskIdx + 1] : null,
+            DisconnectIface: disconnectIdx >= 0 && args.Length > disconnectIdx + 1 ? args[disconnectIdx + 1] : null
         );
     }
 }
