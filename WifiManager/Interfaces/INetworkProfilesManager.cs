@@ -2,7 +2,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Tmds.DBus.Protocol;
 
-namespace WifiManager.Interfaces;
+namespace SharpWifiManager.Interfaces;
 
 
 public interface INetworkProfilesManager

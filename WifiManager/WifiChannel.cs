@@ -1,4 +1,4 @@
-namespace WifiManager;
+namespace SharpWifiManager;
 
 /* Maps Wi-Fi radio frequencies to channel numbers.
     NetworkManager reports frequency in MHz. Channel numbers are not transmitted as a separate property,

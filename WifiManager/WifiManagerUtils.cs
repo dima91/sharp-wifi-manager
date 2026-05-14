@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using System.Text;
 
-namespace WifiManager;
+namespace SharpWifiManager;
 
 /* Produces concise user-facing security labels from NetworkManager security flags.
     NetworkManager exposes raw capability bit flags. They are precise, but not ideal

@@ -1,3 +1,3 @@
-namespace WifiManager;
+namespace SharpWifiManager;
 
 public sealed record NetworkProfile(string ProfileName, string ConnectionPath);

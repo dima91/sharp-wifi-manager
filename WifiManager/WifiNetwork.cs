@@ -1,4 +1,4 @@
-namespace WifiManager;
+namespace SharpWifiManager;
 
 
 /* Describes a Wi-Fi access point detected by NetworkManager.

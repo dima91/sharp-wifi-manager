@@ -1,5 +1,5 @@
 using System;
-using WifiManager.Interfaces;
+using SharpWifiManager.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
 using Tmds.DBus.Protocol;
@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 
 
-namespace WifiManager;
+namespace SharpWifiManager;
 
 /* This implementation talks to the "org.freedesktop.NetworkManager" service.
     It works on Linux systems where NetworkManager is installed, running, and

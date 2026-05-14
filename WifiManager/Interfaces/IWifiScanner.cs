@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace WifiManager.Interfaces;
+namespace SharpWifiManager.Interfaces;
 
 
 /* Defines the public contract for components that discover nearby Wi-Fi networks.

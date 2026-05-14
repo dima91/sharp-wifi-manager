@@ -3,7 +3,7 @@ using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-namespace WifiManager;
+namespace SharpWifiManager;
 
 
 /* Low-level D-Bus client for the subset of NetworkManager used by the scanner.

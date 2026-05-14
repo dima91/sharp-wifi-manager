@@ -1,6 +1,6 @@
 using System;
 
-namespace WifiManager;
+namespace SharpWifiManager;
 
 
 /* Internal representation of the NetworkManager AccessPoint property bag.

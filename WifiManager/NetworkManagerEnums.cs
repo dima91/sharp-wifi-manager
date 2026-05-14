@@ -5,7 +5,7 @@ using System;
 // using System.Threading.Tasks;
 
 
-namespace WifiManager;
+namespace SharpWifiManager;
 
 
 /* NetworkManager device type values used by this library.

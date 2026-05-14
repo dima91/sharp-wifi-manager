@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using WifiManager;
-using WifiManager.Interfaces;
+using SharpWifiManager;
+using SharpWifiManager.Interfaces;
 
 
 var options = CliOptions.Parse(args);
@@ -16,7 +16,7 @@ if (options.ShowHelp)
 
 try
 {
-    WifiManager.WifiManager manager = new WifiManager.WifiManager();
+    SharpWifiManager.WifiManager manager = new SharpWifiManager.WifiManager();
 
 
     if (!string.IsNullOrEmpty(options.IfaceStatus))

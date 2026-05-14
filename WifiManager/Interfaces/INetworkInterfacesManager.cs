@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace WifiManager.Interfaces;
+namespace SharpWifiManager.Interfaces;
 
 
 public interface INetworkInterfacesManager
