@@ -9,4 +9,15 @@
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.93.0" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <PackageId>SharpWifiManager</PackageId>
+    <Authors>Luca</Authors>
+    <Company>dima.91</Company>
+    <Description>C# library to manage wifi connection using Linux D-Bus.</Description>
+    <PackageProjectUrl>https://github.com/dima91/sharp-wifi-manager</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dima91/sharp-wifi-manager</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
 </Project>
