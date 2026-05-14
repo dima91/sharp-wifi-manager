@@ -1,4 +1,5 @@
 using Tmds.DBus.Protocol;
+using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -45,7 +46,7 @@ internal sealed class DBusClient
         _connection = connection;
     }
 
-    
+
     /* Calls "org.freedesktop.NetworkManager.GetDevices"
 
         @returns D-Bus object paths for all devices known by NetworkManager
@@ -86,7 +87,7 @@ internal sealed class DBusClient
         return (NetworkManagerDeviceState)value;
     }
 
-    
+
     /* Calls "org.freedesktop.NetworkManager.Device.Wireless.GetAccessPoints"
 
         @param devicePath D-Bus object path of a Wi-Fi device
@@ -96,13 +97,13 @@ internal sealed class DBusClient
     public Task<ObjectPath[]> GetAccessPointsAsync(ObjectPath devicePath) =>
         _connection.CallMethodAsync(CreateGetAccessPointsMessage(devicePath), ReadObjectPathArray, this);
 
-    
+
     /* Calls "org.freedesktop.NetworkManager.Device.Wireless.RequestScan"
         The method asks NetworkManager to start a scan and returns once the request is accepted.
         Scan results become visible later through the access point objects.
         @param devicePath D-Bus object path of a Wi-Fi device
     */
-    
+
     public Task RequestScanAsync(ObjectPath devicePath) => _connection.CallMethodAsync(CreateRequestScanMessage(devicePath));
 
 
@@ -118,7 +119,7 @@ internal sealed class DBusClient
             ReadAccessPointProperties,
             this);
 
-    
+
     /* Reads a string property through org.freedesktop.DBus.Properties.Get
 
         @param path Object path that owns the property.
@@ -140,7 +141,7 @@ internal sealed class DBusClient
             this);
     }
 
-    
+
     /* Reads an unsigned 32-bit integer property through "org.freedesktop.DBus.Properties.Get"
 
         @param path Object path that owns the property
@@ -162,7 +163,7 @@ internal sealed class DBusClient
             this);
     }
 
-    
+
     /* Creates the message for "NetworkManager.GetDevices()"
 
         @returns A D-Bus method call message with no body
@@ -178,7 +179,7 @@ internal sealed class DBusClient
         return writer.CreateMessage();
     }
 
-    
+
     /* Creates the message for "Device.Wireless.GetAccessPoints()"
 
         @param devicePath Object path of the Wi-Fi device
@@ -196,7 +197,7 @@ internal sealed class DBusClient
         return writer.CreateMessage();
     }
 
-    
+
     /* Creates the message for "Device.Wireless.RequestScan"
         NetworkManager allows scan options in a dictionary.
         The scanner does not need special options, so it sends an empty dictionary.
@@ -205,7 +206,7 @@ internal sealed class DBusClient
 
         @returns A D-Bus method call message with an empty options dictionary
     */
-    
+
     private MessageBuffer CreateRequestScanMessage(ObjectPath devicePath)
     {
         var writer = _connection.GetMessageWriter();
@@ -219,7 +220,7 @@ internal sealed class DBusClient
         return writer.CreateMessage();
     }
 
-    
+
     /* Creates a standard D-Bus "Properties.Get" message.
 
         @param path Object path that owns the property
@@ -227,7 +228,7 @@ internal sealed class DBusClient
         @param property Property name
 
         @returns A D-Bus method call message with body signature "ss"
-    */ 
+    */
     private MessageBuffer CreateGetPropertyMessage(ObjectPath path, string dbusInterface, string property)
     {
         var writer = _connection.GetMessageWriter();
@@ -242,7 +243,7 @@ internal sealed class DBusClient
         return writer.CreateMessage();
     }
 
-    
+
     /* Creates a standard D-Bus <c>Properties.GetAll</c> message.
 
         @param path Object path that owns the properties
@@ -263,7 +264,7 @@ internal sealed class DBusClient
         return writer.CreateMessage();
     }
 
-    
+
     /* Reads a D-Bus method return body containing an array of object paths.
 
         @param message Reply message from NetworkManager
@@ -277,7 +278,7 @@ internal sealed class DBusClient
         return reader.ReadArrayOfObjectPath();
     }
 
-    
+
     /* Reads the property dictionary returned by "Properties.GetAll" for a NetworkManager access point.
         Unknown properties are skipped as variants.
         This keeps the parser forward compatible with NetworkManager versions that add extra access point fields.
@@ -291,7 +292,7 @@ internal sealed class DBusClient
     {
         var reader = message.GetBodyReader();
         var properties = new AccessPointProperties();
-        var arrayEnd = reader.ReadArrayStart(DBusType.Struct);
+        var arrayEnd = reader.ReadArrayStart(DBusType.DictEntry);
 
         while (reader.HasNext(arrayEnd))
         {
@@ -356,5 +357,139 @@ internal sealed class DBusClient
         }
 
         return properties;
+    }
+
+
+    /* Calls Settings.ListConnections to return object paths for saved connections. */
+    public Task<ObjectPath[]> ListSavedConnectionsAsync()
+    {
+        var writer = _connection.GetMessageWriter();
+        writer.WriteMethodCallHeader(
+            destination: Destination,
+            path: "/org/freedesktop/NetworkManager/Settings",
+            @interface: "org.freedesktop.NetworkManager.Settings",
+            member: "ListConnections");
+        return _connection.CallMethodAsync(writer.CreateMessage(), ReadObjectPathArray, this);
+    }
+
+
+    private MessageBuffer CreateGetSettingsMessage(ObjectPath connectionPath)
+    {
+        var writer = _connection.GetMessageWriter();
+        writer.WriteMethodCallHeader(
+            destination: Destination,
+            path: connectionPath,
+            @interface: "org.freedesktop.NetworkManager.Settings.Connection",
+            member: "GetSettings");
+        return writer.CreateMessage();
+    }
+
+
+    public Task<Dictionary<string, Dictionary<string, VariantValue>>> GetConnectionSettingsAsync(ObjectPath connectionPath)
+    {
+        return _connection.CallMethodAsync(CreateGetSettingsMessage(connectionPath), ReadConnectionSettings, this);
+    }
+
+
+
+
+    private static Dictionary<string, Dictionary<string, VariantValue>> ReadConnectionSettings(Message message, object? _)
+    {
+        var reader = message.GetBodyReader();
+        var result = new Dictionary<string, Dictionary<string, VariantValue>>();
+
+        var arrayEnd = reader.ReadArrayStart(DBusType.DictEntry);
+        while (reader.HasNext(arrayEnd))
+        {
+            var settingName = reader.ReadString();
+            var innerEnd = reader.ReadArrayStart(DBusType.DictEntry);
+            var inner = new Dictionary<string, VariantValue>();
+            while (reader.HasNext(innerEnd))
+            {
+                var key = reader.ReadString();
+                reader.ReadSignature("v");
+                var value = reader.ReadVariantValue();
+                inner[key] = value;
+            }
+
+            result[settingName] = inner;
+        }
+
+        return result;
+    }
+
+
+    public async Task<ObjectPath?> FindSavedConnectionForSsidAsync(string ssid)
+    {
+        var connections = await ListSavedConnectionsAsync();
+        foreach (var conn in connections)
+        {
+            Dictionary<string, Dictionary<string, VariantValue>> settings;
+            try
+            {
+                settings = await GetConnectionSettingsAsync(conn);
+            }
+            catch
+            {
+                // Be defensive: skip connections that cannot be parsed due to varying
+                // NetworkManager signatures across versions.
+                continue;
+            }
+            if (settings.TryGetValue("802-11-wireless", out var wireless))
+            {
+                if (wireless.TryGetValue("ssid", out var variant))
+                {
+                    object? inner = null;
+                    var prop = variant.GetType().GetProperty("Value");
+                    if (prop is not null)
+                        inner = prop.GetValue(variant);
+
+                    if (inner is byte[] bytes)
+                    {
+                        var decoded = SsidFormatter.Decode(bytes);
+                        if (string.Equals(decoded, ssid, StringComparison.Ordinal))
+                            return conn;
+                    }
+                    else if (inner is string[] sarr && sarr.Length > 0)
+                    {
+                        if (string.Equals(sarr[0], ssid, StringComparison.Ordinal))
+                            return conn;
+                    }
+                    else if (inner is string s)
+                    {
+                        if (string.Equals(s, ssid, StringComparison.Ordinal))
+                            return conn;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+
+    /* Calls NetworkManager.ActivateConnection to activate an existing saved connection on a given device. */
+    public Task<ObjectPath> ActivateConnectionAsync(ObjectPath connectionPath, ObjectPath devicePath)
+    {
+        var writer = _connection.GetMessageWriter();
+        writer.WriteMethodCallHeader(
+            destination: Destination,
+            path: ManagerPath,
+            @interface: ManagerInterface,
+            signature: "ooo",
+            member: "ActivateConnection");
+
+        writer.WriteObjectPath(connectionPath);
+        writer.WriteObjectPath(devicePath);
+        writer.WriteObjectPath(new ObjectPath("/"));
+
+        return _connection.CallMethodAsync(writer.CreateMessage(), ReadObjectPath, this);
+    }
+
+    
+    private static ObjectPath ReadObjectPath(Message message, object? _)
+    {
+        var reader = message.GetBodyReader();
+        return reader.ReadObjectPath();
     }
 }
