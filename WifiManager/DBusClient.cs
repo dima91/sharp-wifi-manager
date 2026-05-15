@@ -36,12 +36,12 @@ internal sealed class DBusClient
     private const string PropertiesInterface = "org.freedesktop.DBus.Properties";
 
     // Active connection to the D-Bus system bus.
-    private readonly DBusConnection _connection;
+    private readonly Connection _connection;
 
     /* Creates a NetworkManager D-Bus client over an existing D-Bus connection.
         @param connection Connected D-Bus connection
     */
-    public DBusClient(DBusConnection connection)
+    public DBusClient(Connection connection)
     {
         _connection = connection;
     }
@@ -206,7 +206,6 @@ internal sealed class DBusClient
 
         @returns A D-Bus method call message with an empty options dictionary
     */
-
     private MessageBuffer CreateRequestScanMessage(ObjectPath devicePath)
     {
         var writer = _connection.GetMessageWriter();
@@ -216,7 +215,11 @@ internal sealed class DBusClient
             @interface: WirelessDeviceInterface,
             signature: "a{sv}",
             member: "RequestScan");
-        writer.WriteDictionary(new Dictionary<string, VariantValue>());
+
+        // Write empty dictionary a{sv} — no scan options needed.
+        var arrayStart = writer.WriteDictionaryStart();
+        writer.WriteDictionaryEnd(arrayStart);
+
         return writer.CreateMessage();
     }
 
@@ -244,7 +247,7 @@ internal sealed class DBusClient
     }
 
 
-    /* Creates a standard D-Bus <c>Properties.GetAll</c> message.
+    /* Creates a standard D-Bus Properties.GetAll message.
 
         @param path Object path that owns the properties
         @param dbusInterface Interface whose properties should be returned
@@ -389,8 +392,6 @@ internal sealed class DBusClient
     {
         return _connection.CallMethodAsync(CreateGetSettingsMessage(connectionPath), ReadConnectionSettings, this);
     }
-
-
 
 
     private static Dictionary<string, Dictionary<string, VariantValue>> ReadConnectionSettings(Message message, object? _)

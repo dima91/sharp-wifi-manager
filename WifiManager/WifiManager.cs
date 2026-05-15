@@ -2,6 +2,7 @@ using System;
 using SharpWifiManager.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
+using Tmds.DBus; // For Address.System
 using Tmds.DBus.Protocol;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,12 +33,9 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
         TimeSpan? scanDelay = null,
         CancellationToken cancellationToken = default)
     {
-        /* Tmds.DBus.Protocol reads the well-known system bus address from the host environment.
-            If this is missing, the process is not running in a normal Linux D-Bus environment or the system bus is unavailable. */
-        if (DBusAddress.System is null)
-            throw new InvalidOperationException("The D-Bus system bus address is not available.");
-
-        var connection = new DBusConnection(DBusAddress.System);
+        // In Tmds.DBus.Protocol 0.15.0, Address.System is used to get the system bus address.
+        // The Connection constructor or ConnectAsync will throw if the bus is unavailable.
+        var connection = new Connection(Address.System);
         await connection.ConnectAsync();
 
         var networkManager = new DBusClient(connection);
@@ -104,10 +102,8 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
 
     public async Task<INetworkInterfacesManager.InterfaceState?> GetInterfaceStateAsync(string interfaceName)
     {
-        if (DBusAddress.System is null)
-            throw new InvalidOperationException("The D-Bus system bus address is not available.");
-
-        var connection = new DBusConnection(DBusAddress.System);
+        // In Tmds.DBus.Protocol 0.15.0, Address.System is used to get the system bus address.
+        var connection = new Connection(Address.System);
         await connection.ConnectAsync();
 
         var networkManager = new DBusClient(connection);
@@ -128,10 +124,8 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
 
     public async Task<IReadOnlyList<INetworkInterfacesManager.InterfaceState>> ListInterfaceStatesAsync()
     {
-        if (DBusAddress.System is null)
-            throw new InvalidOperationException("The D-Bus system bus address is not available.");
-
-        var connection = new DBusConnection(DBusAddress.System);
+        // In Tmds.DBus.Protocol 0.15.0, Address.System is used to get the system bus address.
+        var connection = new Connection(Address.System);
         await connection.ConnectAsync();
 
         var networkManager = new DBusClient(connection);
@@ -153,24 +147,24 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
     }
 
 
-    public async Task<ObjectPath?> FindSavedConnectionPathAsync(string ssid)
+    /* Returns the D-Bus object path string of the saved connection, or null if not found.
+        The path is returned as a plain string to avoid leaking Tmds.DBus.Protocol types
+        into the public interface of the library. */
+    public async Task<string?> FindSavedConnectionPathAsync(string ssid)
     {
-        if (DBusAddress.System is null)
-            throw new InvalidOperationException("The D-Bus system bus address is not available.");
-
-        var connection = new DBusConnection(DBusAddress.System);
+        // In Tmds.DBus.Protocol 0.15.0, Address.System is used to get the system bus address.
+        var connection = new Connection(Address.System);
         await connection.ConnectAsync();
         var networkManager = new DBusClient(connection);
-        return await networkManager.FindSavedConnectionForSsidAsync(ssid);
+        var result = await networkManager.FindSavedConnectionForSsidAsync(ssid);
+        return result?.ToString();
     }
 
 
     public async Task<(bool Connected, string? Message)> ConnectUsingSavedProfileAsync(string interfaceName, string ssid)
     {
-        if (DBusAddress.System is null)
-            throw new InvalidOperationException("The D-Bus system bus address is not available.");
-
-        var connection = new DBusConnection(DBusAddress.System);
+        // In Tmds.DBus.Protocol 0.15.0, Address.System is used to get the system bus address.
+        var connection = new Connection(Address.System);
         await connection.ConnectAsync();
 
         var networkManager = new DBusClient(connection);
@@ -229,7 +223,7 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
 
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo("nmcli")
+            var psi = new ProcessStartInfo("nmcli")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -241,7 +235,7 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
             foreach (var a in args)
                 psi.ArgumentList.Add(a);
 
-            using var proc = System.Diagnostics.Process.Start(psi) ?? throw new InvalidOperationException("Failed to start nmcli");
+            using var proc = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start nmcli");
             var sout = await proc.StandardOutput.ReadToEndAsync();
             var serr = await proc.StandardError.ReadToEndAsync();
             await proc.WaitForExitAsync();
@@ -265,7 +259,7 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
 
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo("nmcli")
+            var psi = new ProcessStartInfo("nmcli")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -277,7 +271,7 @@ public sealed class WifiManager : IWifiScanner, INetworkInterfacesManager, INetw
             foreach (var a in args)
                 psi.ArgumentList.Add(a);
 
-            using var proc = System.Diagnostics.Process.Start(psi) ?? throw new InvalidOperationException("Failed to start nmcli");
+            using var proc = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start nmcli");
             var sout = await proc.StandardOutput.ReadToEndAsync();
             var serr = await proc.StandardError.ReadToEndAsync();
             await proc.WaitForExitAsync();
